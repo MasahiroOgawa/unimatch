@@ -1,16 +1,19 @@
 import torch
 
 
-def flow_loss_func(flow_preds, flow_gt, valid,
-                   gamma=0.9,
-                   max_flow=400,
-                   **kwargs,
-                   ):
+def flow_loss_func(
+    flow_preds,
+    flow_gt,
+    valid,
+    gamma=0.9,
+    max_flow=400,
+    **kwargs,
+):
     n_predictions = len(flow_preds)
     flow_loss = 0.0
 
     # exlude invalid pixels and extremely large diplacements
-    mag = torch.sum(flow_gt ** 2, dim=1).sqrt()  # [B, H, W]
+    mag = torch.sum(flow_gt**2, dim=1).sqrt()  # [B, H, W]
     valid = (valid >= 0.5) & (mag < max_flow)
 
     for i in range(n_predictions):
@@ -28,10 +31,10 @@ def flow_loss_func(flow_preds, flow_gt, valid,
     epe = epe.view(-1)[valid.view(-1)]
 
     metrics = {
-        'epe': epe.mean().item(),
-        '1px': (epe > 1).float().mean().item(),
-        '3px': (epe > 3).float().mean().item(),
-        '5px': (epe > 5).float().mean().item(),
+        "epe": epe.mean().item(),
+        "1px": (epe > 1).float().mean().item(),
+        "3px": (epe > 3).float().mean().item(),
+        "5px": (epe > 5).float().mean().item(),
     }
 
     return flow_loss, metrics

@@ -27,8 +27,8 @@ class ToTensor(object):
             if isinstance(value, list):  # multi-frame target images
                 sample[key] = [torch.from_numpy(v) for v in value]
 
-        sample['img_ref'] = sample['img_ref'].permute((2, 0, 1)) / 255.  # [3, H, W]
-        sample['img_tgt'] = sample['img_tgt'].permute((2, 0, 1)) / 255.  # [3, H, W]
+        sample["img_ref"] = sample["img_ref"].permute((2, 0, 1)) / 255.0  # [3, H, W]
+        sample["img_tgt"] = sample["img_tgt"].permute((2, 0, 1)) / 255.0  # [3, H, W]
 
         return sample
 
@@ -41,20 +41,20 @@ class Normalize(object):
         self.std = std
 
     def __call__(self, sample):
-        norm_keys = ['img_ref', 'img_tgt']
+        norm_keys = ["img_ref", "img_tgt"]
 
-        assert isinstance(sample['img_ref'], torch.Tensor)
-        assert sample['img_ref'].size(0) == 3  # [3, H, W]
+        assert isinstance(sample["img_ref"], torch.Tensor)
+        assert sample["img_ref"].size(0) == 3  # [3, H, W]
 
         for key in norm_keys:
             # multi-frame inference
-            if key == 'img_tgt' and isinstance(sample['img_tgt'], list):
-                for i in range(len(sample['img_tgt'])):
+            if key == "img_tgt" and isinstance(sample["img_tgt"], list):
+                for i in range(len(sample["img_tgt"])):
                     # Images have converted to tensor, with shape [C, H, W]
-                    tgt = sample['img_tgt'][i]
+                    tgt = sample["img_tgt"][i]
                     for t, m, s in zip(tgt, self.mean, self.std):
                         t.sub_(m).div_(s)
-                    sample['img_tgt'][i] = tgt
+                    sample["img_tgt"][i] = tgt
             else:
                 # Images have converted to tensor, with shape [C, H, W]
                 for t, m, s in zip(sample[key], self.mean, self.std):
@@ -70,24 +70,28 @@ class RandomCrop(object):
     def __call__(self, sample):
         crop_h, crop_w = self.crop_size
 
-        ori_h, ori_w = sample['img_ref'].shape[:2]
+        ori_h, ori_w = sample["img_ref"].shape[:2]
 
-        out_intrinsics = sample['intrinsics'].copy()
+        out_intrinsics = sample["intrinsics"].copy()
 
         offset_y = np.random.randint(ori_h - crop_h + 1)
         offset_x = np.random.randint(ori_w - crop_w + 1)
 
-        for key in ['img_ref', 'img_tgt', 'depth']:
-            sample[key] = sample[key][offset_y:offset_y + crop_h, offset_x:offset_x + crop_w]
+        for key in ["img_ref", "img_tgt", "depth"]:
+            sample[key] = sample[key][
+                offset_y : offset_y + crop_h, offset_x : offset_x + crop_w
+            ]
 
         # valid mask for sparse data
-        if 'valid' in sample:
-            sample['valid'] = sample['valid'][offset_y:offset_y + crop_h, offset_x:offset_x + crop_w]
+        if "valid" in sample:
+            sample["valid"] = sample["valid"][
+                offset_y : offset_y + crop_h, offset_x : offset_x + crop_w
+            ]
 
         out_intrinsics[0, 2] -= offset_x
         out_intrinsics[1, 2] -= offset_y
 
-        sample['intrinsics'] = out_intrinsics
+        sample["intrinsics"] = out_intrinsics
 
         return sample
 
@@ -97,11 +101,13 @@ class RandomColor(object):
         self.asymmetric = asymmetric
 
     def __call__(self, sample):
-        transforms = [RandomContrast(asymmetric=self.asymmetric),
-                      RandomGamma(asymmetric=self.asymmetric),
-                      RandomBrightness(asymmetric=self.asymmetric),
-                      RandomHue(asymmetric=self.asymmetric),
-                      RandomSaturation(asymmetric=self.asymmetric)]
+        transforms = [
+            RandomContrast(asymmetric=self.asymmetric),
+            RandomGamma(asymmetric=self.asymmetric),
+            RandomBrightness(asymmetric=self.asymmetric),
+            RandomHue(asymmetric=self.asymmetric),
+            RandomSaturation(asymmetric=self.asymmetric),
+        ]
 
         sample = ToPILImage()(sample)
 
@@ -135,9 +141,11 @@ class RandomResize(object):
     def __call__(self, sample):
         if np.random.random() < 0.5:
             min_h, min_w = self.min_size
-            ori_h, ori_w = sample['img_ref'].shape[:2]
+            ori_h, ori_w = sample["img_ref"].shape[:2]
 
-            min_scale = np.maximum(min_h / float(ori_h), min_w / float(ori_w), dtype=np.float32)
+            min_scale = np.maximum(
+                min_h / float(ori_h), min_w / float(ori_w), dtype=np.float32
+            )
 
             scale = 2 ** np.random.uniform(self.min_scale, self.max_scale)
             scale_x = scale
@@ -151,42 +159,60 @@ class RandomResize(object):
             scale_y = np.clip(scale_y, min_scale, None).astype(np.float32)
 
             # Resize
-            sample['img_ref'] = cv2.resize(sample['img_ref'], None, fx=scale_x, fy=scale_y,
-                                           interpolation=cv2.INTER_LINEAR)
-            sample['img_tgt'] = cv2.resize(sample['img_tgt'], None, fx=scale_x, fy=scale_y,
-                                           interpolation=cv2.INTER_LINEAR)
+            sample["img_ref"] = cv2.resize(
+                sample["img_ref"],
+                None,
+                fx=scale_x,
+                fy=scale_y,
+                interpolation=cv2.INTER_LINEAR,
+            )
+            sample["img_tgt"] = cv2.resize(
+                sample["img_tgt"],
+                None,
+                fx=scale_x,
+                fy=scale_y,
+                interpolation=cv2.INTER_LINEAR,
+            )
 
-            if 'depth' in sample:
-                sample['depth'] = cv2.resize(sample['depth'], None, fx=scale_x, fy=scale_y,
-                                             interpolation=cv2.INTER_LINEAR)
+            if "depth" in sample:
+                sample["depth"] = cv2.resize(
+                    sample["depth"],
+                    None,
+                    fx=scale_x,
+                    fy=scale_y,
+                    interpolation=cv2.INTER_LINEAR,
+                )
 
-            if 'valid' in sample:
-                sample['valid'] = cv2.resize(sample['valid'], None, fx=scale_x, fy=scale_y,
-                                             interpolation=cv2.INTER_LINEAR)
-                sample['valid'] = (sample['valid'] > 0.99).astype(np.float32)
+            if "valid" in sample:
+                sample["valid"] = cv2.resize(
+                    sample["valid"],
+                    None,
+                    fx=scale_x,
+                    fy=scale_y,
+                    interpolation=cv2.INTER_LINEAR,
+                )
+                sample["valid"] = (sample["valid"] > 0.99).astype(np.float32)
 
-            out_intrinsics = sample['intrinsics'].copy()
+            out_intrinsics = sample["intrinsics"].copy()
             out_intrinsics[0] = out_intrinsics[0] * scale_x
             out_intrinsics[1] = out_intrinsics[1] * scale_y
-            sample['intrinsics'] = out_intrinsics
+            sample["intrinsics"] = out_intrinsics
 
         return sample
 
 
 class ToPILImage(object):
-
     def __call__(self, sample):
-        sample['img_ref'] = Image.fromarray(sample['img_ref'].astype('uint8'))
-        sample['img_tgt'] = Image.fromarray(sample['img_tgt'].astype('uint8'))
+        sample["img_ref"] = Image.fromarray(sample["img_ref"].astype("uint8"))
+        sample["img_tgt"] = Image.fromarray(sample["img_tgt"].astype("uint8"))
 
         return sample
 
 
 class ToNumpyArray(object):
-
     def __call__(self, sample):
-        sample['img_ref'] = np.array(sample['img_ref']).astype(np.float32)
-        sample['img_tgt'] = np.array(sample['img_tgt']).astype(np.float32)
+        sample["img_ref"] = np.array(sample["img_ref"]).astype(np.float32)
+        sample["img_tgt"] = np.array(sample["img_tgt"]).astype(np.float32)
 
         return sample
 
@@ -202,12 +228,12 @@ class RandomContrast(object):
         if np.random.random() < 0.5:
             contrast_factor = np.random.uniform(0.8, 1.2)
 
-            sample['img_ref'] = F.adjust_contrast(sample['img_ref'], contrast_factor)
+            sample["img_ref"] = F.adjust_contrast(sample["img_ref"], contrast_factor)
 
             if self.asymmetric and np.random.random() < 0.2:
                 contrast_factor = np.random.uniform(0.8, 1.2)
 
-            sample['img_tgt'] = F.adjust_contrast(sample['img_tgt'], contrast_factor)
+            sample["img_tgt"] = F.adjust_contrast(sample["img_tgt"], contrast_factor)
 
         return sample
 
@@ -220,12 +246,12 @@ class RandomGamma(object):
         if np.random.random() < 0.5:
             gamma = np.random.uniform(0.7, 1.5)  # adopted from FlowNet
 
-            sample['img_ref'] = F.adjust_gamma(sample['img_ref'], gamma)
+            sample["img_ref"] = F.adjust_gamma(sample["img_ref"], gamma)
 
             if self.asymmetric and np.random.random() < 0.2:
                 gamma = np.random.uniform(0.7, 1.5)
 
-            sample['img_tgt'] = F.adjust_gamma(sample['img_tgt'], gamma)
+            sample["img_tgt"] = F.adjust_gamma(sample["img_tgt"], gamma)
 
         return sample
 
@@ -238,12 +264,12 @@ class RandomBrightness(object):
         if np.random.random() < 0.5:
             brightness = np.random.uniform(0.5, 2.0)
 
-            sample['img_ref'] = F.adjust_brightness(sample['img_ref'], brightness)
+            sample["img_ref"] = F.adjust_brightness(sample["img_ref"], brightness)
 
             if self.asymmetric and np.random.random() < 0.2:
                 brightness = np.random.uniform(0.5, 2.0)
 
-            sample['img_tgt'] = F.adjust_brightness(sample['img_tgt'], brightness)
+            sample["img_tgt"] = F.adjust_brightness(sample["img_tgt"], brightness)
 
         return sample
 
@@ -256,12 +282,12 @@ class RandomHue(object):
         if np.random.random() < 0.5:
             hue = np.random.uniform(-0.1, 0.1)
 
-            sample['img_ref'] = F.adjust_hue(sample['img_ref'], hue)
+            sample["img_ref"] = F.adjust_hue(sample["img_ref"], hue)
 
             if self.asymmetric and np.random.random() < 0.2:
                 hue = np.random.uniform(-0.1, 0.1)
 
-            sample['img_tgt'] = F.adjust_hue(sample['img_tgt'], hue)
+            sample["img_tgt"] = F.adjust_hue(sample["img_tgt"], hue)
 
         return sample
 
@@ -274,11 +300,11 @@ class RandomSaturation(object):
         if np.random.random() < 0.5:
             saturation = np.random.uniform(0.8, 1.2)
 
-            sample['img_ref'] = F.adjust_saturation(sample['img_ref'], saturation)
+            sample["img_ref"] = F.adjust_saturation(sample["img_ref"], saturation)
 
             if self.asymmetric and np.random.random() < 0.2:
                 saturation = np.random.uniform(0.8, 1.2)
 
-            sample['img_tgt'] = F.adjust_saturation(sample['img_tgt'], saturation)
+            sample["img_tgt"] = F.adjust_saturation(sample["img_tgt"], saturation)
 
         return sample
